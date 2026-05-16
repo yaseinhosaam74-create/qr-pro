@@ -4,7 +4,7 @@
   "description": "Generate stunning, high-quality QR codes",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#050508",
+  "background_color": "022F40",
   "theme_color": "#050508",
   "orientation": "any",
   "scope": "/",
