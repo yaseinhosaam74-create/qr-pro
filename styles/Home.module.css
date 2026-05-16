@@ -1,0 +1,77 @@
+/* styles/Home.module.css */
+.page { min-height: 100vh; position: relative; z-index: 1; }
+
+.hero {
+  padding: 130px 24px 52px;
+  text-align: center; max-width: 780px; margin: 0 auto;
+}
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 14px;
+  background: rgba(0,144,193,0.1);
+  border: 1px solid rgba(0,144,193,0.25);
+  border-radius: 20px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--accent2); text-transform: uppercase;
+  margin-bottom: 22px;
+}
+
+.title {
+  font-size: clamp(38px, 7vw, 76px);
+  font-weight: 800; letter-spacing: -0.02em;
+  margin-bottom: 18px; line-height: 1.06;
+}
+
+.sub {
+  font-size: 17px; color: var(--text2);
+  line-height: 1.7; margin-bottom: 44px;
+}
+.br { display: none; }
+@media (min-width: 600px) { .br { display: block; } }
+
+.genSection { padding: 0 20px 80px; position: relative; z-index: 1; }
+
+/* Features */
+.features {
+  padding: 72px 24px 80px;
+  max-width: 1080px; margin: 0 auto;
+  position: relative; z-index: 1;
+}
+
+.featTitle {
+  font-size: 32px; text-align: center;
+  margin-bottom: 40px;
+}
+
+.featGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.featCard {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 18px; padding: 22px;
+  display: flex; flex-direction: column; gap: 10px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.featCard:hover { border-color: var(--border2); transform: translateY(-2px); }
+
+.featIcon {
+  width: 42px; height: 42px; border-radius: 12px;
+  background: rgba(0,144,193,0.1);
+  border: 1px solid rgba(0,144,193,0.2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent2);
+}
+
+.featCard h3 { font-size: 15px; font-weight: 700; }
+.featCard p  { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+.footer {
+  padding: 28px 24px; text-align: center;
+  border-top: 1px solid var(--border);
+  color: var(--text3); font-size: 13px;
+  position: relative; z-index: 1;
+}
