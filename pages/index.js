@@ -68,7 +68,7 @@ export default function Home({ theme, toggleTheme }) {
       </section>
 
       <footer className={styles.footer}>
-        <p>© 2025 QR Pro · Powered by Next.js & Firebase</p>
+        <p>© 2026 QR Pro. PY.YASEIN </p>
       </footer>
     </div>
   );
