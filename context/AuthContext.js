@@ -7,29 +7,40 @@ import { auth, db } from '../lib/firebase';
 const AuthContext = createContext({});
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user,     setUser]     = useState(null);
   const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          setUserData(userSnap.data());
-        } else {
-          const newUser = {
-            email: firebaseUser.email,
-            name: firebaseUser.displayName || '',
-            role: 'user',
-            freeAccess: false,
-            createdAt: serverTimestamp(),
-            qrCount: 0,
-          };
-          await setDoc(userRef, newUser);
-          setUserData(newUser);
+        try {
+          const ref  = doc(db, 'users', firebaseUser.uid);
+          const snap = await getDoc(ref);
+
+          if (snap.exists()) {
+            // User already exists — load data
+            const data = snap.data();
+            setUserData(data);
+          } else {
+            // New user — create document in Firestore
+            const newUser = {
+              email:       firebaseUser.email      || '',
+              name:        firebaseUser.displayName || '',
+              photoURL:    firebaseUser.photoURL    || '',
+              role:        'user',
+              freeAccess:  false,
+              createdAt:   serverTimestamp(),
+              qrCount:     0,
+            };
+            await setDoc(ref, newUser);
+            setUserData(newUser);
+          }
+        } catch (err) {
+          console.error('Firestore error:', err);
+          // Set minimal userData so app doesn't break
+          setUserData({ role: 'user', freeAccess: false });
         }
       } else {
         setUser(null);
@@ -37,13 +48,17 @@ export function AuthProvider({ children }) {
       }
       setLoading(false);
     });
-    return unsubscribe;
+
+    return () => unsub();
   }, []);
 
   const logout = () => signOut(auth);
 
+  // isAdmin: role === 'admin'
   const isAdmin = userData?.role === 'admin';
-  const isVIP = userData?.freeAccess === true || userData?.role === 'vip' || isAdmin;
+
+  // isVIP: admin OR vip role OR freeAccess granted by admin
+  const isVIP = isAdmin || userData?.role === 'vip' || userData?.freeAccess === true;
 
   return (
     <AuthContext.Provider value={{ user, userData, loading, logout, isAdmin, isVIP }}>
