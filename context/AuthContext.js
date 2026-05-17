@@ -15,31 +15,29 @@ export function AuthProvider({ children }) {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
+
         try {
           const ref  = doc(db, 'users', firebaseUser.uid);
           const snap = await getDoc(ref);
 
           if (snap.exists()) {
-            // User already exists — load data
-            const data = snap.data();
-            setUserData(data);
+            setUserData(snap.data());
           } else {
-            // New user — create document in Firestore
+            // إنشاء مستخدم جديد في Firestore
             const newUser = {
-              email:       firebaseUser.email      || '',
-              name:        firebaseUser.displayName || '',
-              photoURL:    firebaseUser.photoURL    || '',
-              role:        'user',
-              freeAccess:  false,
-              createdAt:   serverTimestamp(),
-              qrCount:     0,
+              email:      firebaseUser.email       || '',
+              name:       firebaseUser.displayName || '',
+              photoURL:   firebaseUser.photoURL    || '',
+              role:       'user',
+              freeAccess: false,
+              createdAt:  serverTimestamp(),
+              qrCount:    0,
             };
             await setDoc(ref, newUser);
             setUserData(newUser);
           }
         } catch (err) {
-          console.error('Firestore error:', err);
-          // Set minimal userData so app doesn't break
+          console.error('Firestore error:', err.message);
           setUserData({ role: 'user', freeAccess: false });
         }
       } else {
@@ -52,13 +50,14 @@ export function AuthProvider({ children }) {
     return () => unsub();
   }, []);
 
-  const logout = () => signOut(auth);
+  const logout = async () => {
+    await signOut(auth);
+    setUser(null);
+    setUserData(null);
+  };
 
-  // isAdmin: role === 'admin'
   const isAdmin = userData?.role === 'admin';
-
-  // isVIP: admin OR vip role OR freeAccess granted by admin
-  const isVIP = isAdmin || userData?.role === 'vip' || userData?.freeAccess === true;
+  const isVIP   = isAdmin || userData?.role === 'vip' || userData?.freeAccess === true;
 
   return (
     <AuthContext.Provider value={{ user, userData, loading, logout, isAdmin, isVIP }}>
