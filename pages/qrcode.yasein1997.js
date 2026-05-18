@@ -3,17 +3,17 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  collection, getDocs, doc, updateDoc, getDoc,
-  setDoc, query, orderBy, limit
+  collection, getDocs, doc, updateDoc,
+  getDoc, setDoc
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import toast from 'react-hot-toast';
 import {
-  Users, Shield, DollarSign, Edit3, Check, X,
-  Search, RefreshCw, QrCode, TrendingUp,
-  ToggleLeft, ToggleRight
+  Users, Shield, DollarSign, Edit3,
+  Check, X, Search, RefreshCw,
+  QrCode, TrendingUp, ToggleLeft, ToggleRight, Crown
 } from 'lucide-react';
 import styles from '../styles/Admin.module.css';
 
@@ -24,32 +24,20 @@ export default function AdminPanel({ theme, toggleTheme }) {
   const [tab,       setTab]       = useState('users');
   const [users,     setUsers]     = useState([]);
   const [qrCodes,   setQrCodes]   = useState([]);
-  const [pricing,   setPricing]   = useState({ highQuality: 5, gradient: 2, bgImage: 3, currency: 'EGP' });
+  const [pricing,   setPricing]   = useState({ highQuality:5, gradient:2, bgImage:3, currency:'EGP' });
   const [editPrice, setEditPrice] = useState(null);
   const [search,    setSearch]    = useState('');
   const [fetching,  setFetching]  = useState(false);
-  const [stats,     setStats]     = useState({ users: 0, qr: 0, vip: 0, paid: 0 });
+  const [stats,     setStats]     = useState({ users:0, qr:0, vip:0, paid:0 });
 
-  // Wait for loading to finish before redirect
   useEffect(() => {
-    if (loading) return; // still loading — wait
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-    if (!isAdmin) {
-      router.replace('/');
-      return;
-    }
-    // User is admin — load data
+    if (loading) return;
+    if (!user) { router.replace('/login'); return; }
+    if (!isAdmin) { router.replace('/'); return; }
     loadAll();
   }, [loading, user, isAdmin]);
 
-  const loadAll = () => {
-    loadPricing();
-    loadUsers();
-    loadQR();
-  };
+  const loadAll = () => { loadPricing(); loadUsers(); loadQR(); };
 
   const loadPricing = async () => {
     try {
@@ -67,12 +55,7 @@ export default function AdminPanel({ theme, toggleTheme }) {
     try {
       const snap = await getDocs(collection(db, 'users'));
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Sort by createdAt desc
-      list.sort((a, b) => {
-        const ta = a.createdAt?.toMillis?.() || 0;
-        const tb = b.createdAt?.toMillis?.() || 0;
-        return tb - ta;
-      });
+      list.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
       setUsers(list);
       setStats(s => ({
         ...s,
@@ -82,29 +65,17 @@ export default function AdminPanel({ theme, toggleTheme }) {
     } catch (e) {
       console.error(e);
       toast.error('Failed to load users');
-    } finally {
-      setFetching(false);
-    }
+    } finally { setFetching(false); }
   };
 
   const loadQR = async () => {
     try {
       const snap = await getDocs(collection(db, 'qr_codes'));
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      list.sort((a, b) => {
-        const ta = a.createdAt?.toMillis?.() || 0;
-        const tb = b.createdAt?.toMillis?.() || 0;
-        return tb - ta;
-      });
+      list.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
       setQrCodes(list.slice(0, 100));
-      setStats(s => ({
-        ...s,
-        qr: list.length,
-        paid: list.filter(q => q.paid).length,
-      }));
-    } catch (e) {
-      console.error(e);
-    }
+      setStats(s => ({ ...s, qr: list.length, paid: list.filter(q => q.paid).length }));
+    } catch (e) { console.error(e); }
   };
 
   const toggleFree = async (uid, cur) => {
@@ -119,7 +90,7 @@ export default function AdminPanel({ theme, toggleTheme }) {
     try {
       await updateDoc(doc(db, 'users', uid), { role });
       setUsers(p => p.map(u => u.id === uid ? { ...u, role } : u));
-      toast.success(`Role changed to ${role}`);
+      toast.success(`Role → ${role}`);
     } catch { toast.error('Update failed'); }
   };
 
@@ -136,28 +107,26 @@ export default function AdminPanel({ theme, toggleTheme }) {
     u.name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Show loading spinner while auth is loading
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh', display: 'flex',
-        alignItems: 'center', justifyContent: 'center',
-        flexDirection: 'column', gap: 16
-      }}>
-        <RefreshCw size={28} className={styles.spin} color="var(--accent)" />
-        <p style={{ color: 'var(--text2)', fontSize: 14 }}>Checking permissions...</p>
-      </div>
-    );
-  }
+  const formatDate = ts => {
+    if (!ts) return '—';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  };
 
-  // If not admin, don't render (redirect happening)
+  if (loading) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:12 }}>
+      <RefreshCw size={26} className={styles.spin} color="var(--accent)" />
+      <p style={{ color:'var(--text2)', fontSize:14 }}>Checking permissions...</p>
+    </div>
+  );
+
   if (!user || !isAdmin) return null;
 
   const TABS = [
-    { id: 'users',   label: 'Users',      icon: Users },
-    { id: 'pricing', label: 'Pricing',    icon: DollarSign },
-    { id: 'qr',      label: 'QR History', icon: QrCode },
-    { id: 'stats',   label: 'Stats',      icon: TrendingUp },
+    { id:'users',   label:'Users',      icon:Users },
+    { id:'pricing', label:'Pricing',    icon:DollarSign },
+    { id:'qr',      label:'QR History', icon:QrCode },
+    { id:'stats',   label:'Stats',      icon:TrendingUp },
   ];
 
   return (
@@ -170,15 +139,15 @@ export default function AdminPanel({ theme, toggleTheme }) {
           <div>
             <div className={styles.adminTag}><Shield size={11} /> Admin Panel</div>
             <h1 className={styles.title}>Control Panel</h1>
-            <p className={styles.sub}>Logged in as: <strong>{userData?.email}</strong></p>
+            <p className={styles.sub}>Signed in as <strong>{userData?.email}</strong></p>
           </div>
           <div className={styles.statsRow}>
             {[
-              { n: stats.users, l: 'Users' },
-              { n: stats.qr,    l: 'QR Codes' },
-              { n: stats.vip,   l: 'VIP' },
-              { n: stats.paid,  l: 'Paid' },
-            ].map((s, i) => (
+              { n:stats.users, l:'Users'    },
+              { n:stats.qr,    l:'QR Codes' },
+              { n:stats.vip,   l:'VIP'      },
+              { n:stats.paid,  l:'Paid'     },
+            ].map((s,i) => (
               <div key={i} className={styles.statBox}>
                 <span className={styles.statN}>{s.n}</span>
                 <span className={styles.statL}>{s.l}</span>
@@ -203,25 +172,20 @@ export default function AdminPanel({ theme, toggleTheme }) {
 
         <AnimatePresence mode="wait">
           <motion.div key={tab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}>
+            initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }}
+            exit={{ opacity:0, y:-8 }} transition={{ duration:0.18 }}>
 
-            {/* ── USERS ── */}
+            {/* USERS */}
             {tab === 'users' && (
               <div>
                 <div className={styles.toolbar}>
                   <div className={styles.searchBox}>
                     <Search size={14} />
-                    <input
-                      placeholder="Search by name or email..."
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                    />
+                    <input placeholder="Search name or email..."
+                      value={search} onChange={e => setSearch(e.target.value)} />
                   </div>
                   <button className="btn-ghost" onClick={loadUsers}
-                    style={{ padding: '9px 14px', fontSize: '13px' }}>
+                    style={{ padding:'9px 14px', fontSize:'13px' }}>
                     <RefreshCw size={13} /> Refresh
                   </button>
                 </div>
@@ -229,19 +193,15 @@ export default function AdminPanel({ theme, toggleTheme }) {
                 <div className={styles.tableWrap}>
                   {fetching ? (
                     <div className={styles.empty}>
-                      <RefreshCw size={24} className={styles.spin} color="var(--accent)" />
-                      <p>Loading users...</p>
+                      <RefreshCw size={22} className={styles.spin} color="var(--accent)" />
+                      <p>Loading...</p>
                     </div>
                   ) : (
                     <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>User</th>
-                          <th>Role</th>
-                          <th>Free Access</th>
-                          <th>QR Count</th>
-                        </tr>
-                      </thead>
+                      <thead><tr>
+                        <th>User</th><th>Joined</th><th>Role</th>
+                        <th>Free Access</th><th>QR Count</th>
+                      </tr></thead>
                       <tbody>
                         {filtered.map(u => (
                           <tr key={u.id}>
@@ -256,6 +216,7 @@ export default function AdminPanel({ theme, toggleTheme }) {
                                 </div>
                               </div>
                             </td>
+                            <td><span className={styles.uEmail}>{formatDate(u.createdAt)}</span></td>
                             <td>
                               <select className={styles.roleSelect}
                                 value={u.role || 'user'}
@@ -272,13 +233,10 @@ export default function AdminPanel({ theme, toggleTheme }) {
                                 disabled={u.id === user.uid}>
                                 {u.freeAccess
                                   ? <><ToggleRight size={22} color="var(--accent)" /><span className={styles.on}>ON</span></>
-                                  : <><ToggleLeft  size={22} color="var(--text3)"  /><span className={styles.off}>OFF</span></>
-                                }
+                                  : <><ToggleLeft  size={22} color="var(--text3)"  /><span className={styles.off}>OFF</span></>}
                               </button>
                             </td>
-                            <td>
-                              <span className={styles.qrN}>{u.qrCount || 0}</span>
-                            </td>
+                            <td><span className={styles.qrN}>{u.qrCount || 0}</span></td>
                           </tr>
                         ))}
                       </tbody>
@@ -286,21 +244,20 @@ export default function AdminPanel({ theme, toggleTheme }) {
                   )}
                   {!fetching && filtered.length === 0 && (
                     <div className={styles.empty}>
-                      <Users size={30} color="var(--border2)" />
-                      <p>No users found</p>
+                      <Users size={30} color="var(--border2)" /><p>No users found</p>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* ── PRICING ── */}
+            {/* PRICING */}
             {tab === 'pricing' && (
               <div className={styles.priceGrid}>
                 {[
-                  { key: 'highQuality', label: 'High Quality (1024px)' },
-                  { key: 'gradient',    label: 'Ocean Gradient' },
-                  { key: 'bgImage',     label: 'Background Image' },
+                  { key:'highQuality', label:'High Quality (1024px)' },
+                  { key:'gradient',    label:'Ocean Gradient' },
+                  { key:'bgImage',     label:'Background Image' },
                 ].map(item => (
                   <div key={item.key} className={styles.priceCard}>
                     <div className={styles.priceTop}>
@@ -319,15 +276,13 @@ export default function AdminPanel({ theme, toggleTheme }) {
                           <span>{pricing.currency}</span>
                           <input type="number" min="0" step="0.5"
                             value={pricing[item.key]}
-                            onChange={e => setPricing(p => ({ ...p, [item.key]: parseFloat(e.target.value) || 0 }))} />
+                            onChange={e => setPricing(p => ({ ...p, [item.key]: parseFloat(e.target.value)||0 }))} />
                         </div>
                         <div className={styles.priceEditBtns}>
-                          <button className="btn-primary" onClick={savePricing}
-                            style={{ padding: '8px 14px', fontSize: '13px' }}>
+                          <button className="btn-primary" onClick={savePricing} style={{ padding:'8px 14px', fontSize:'13px' }}>
                             <Check size={12} /> Save
                           </button>
-                          <button className="btn-ghost" onClick={() => setEditPrice(null)}
-                            style={{ padding: '8px 14px', fontSize: '13px' }}>
+                          <button className="btn-ghost" onClick={() => setEditPrice(null)} style={{ padding:'8px 14px', fontSize:'13px' }}>
                             <X size={12} /> Cancel
                           </button>
                         </div>
@@ -342,7 +297,7 @@ export default function AdminPanel({ theme, toggleTheme }) {
                 ))}
                 <div className={styles.priceCard}>
                   <div className={styles.priceLabel}>Currency</div>
-                  <select className="input-field" style={{ marginTop: 10 }}
+                  <select className="input-field" style={{ marginTop:10 }}
                     value={pricing.currency || 'EGP'}
                     onChange={e => setPricing(p => ({ ...p, currency: e.target.value }))}>
                     {['EGP','USD','EUR','GBP','SAR','AED'].map(c => (
@@ -350,65 +305,71 @@ export default function AdminPanel({ theme, toggleTheme }) {
                     ))}
                   </select>
                   <button className="btn-primary" onClick={savePricing}
-                    style={{ marginTop: 10, width: '100%', padding: '10px', fontSize: '13px' }}>
+                    style={{ marginTop:10, width:'100%', padding:'10px', fontSize:'13px' }}>
                     <Check size={13} /> Save Currency
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ── QR HISTORY ── */}
+            {/* QR HISTORY */}
             {tab === 'qr' && (
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Data</th>
-                      <th>User ID</th>
-                      <th>Quality</th>
-                      <th>Paid</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {qrCodes.map(q => (
-                      <tr key={q.id}>
-                        <td><span className="badge badge-pro">{q.type}</span></td>
-                        <td><span className={styles.uEmail}>{q.data?.slice(0, 35)}</span></td>
-                        <td><span className={styles.uEmail}>{q.uid?.slice(0, 12)}...</span></td>
-                        <td><span className={styles.qrN}>{q.style?.quality || 'standard'}</span></td>
-                        <td>
-                          {q.paid
-                            ? <Check size={15} color="var(--success)" />
-                            : <X     size={15} color="var(--text3)"  />}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {qrCodes.length === 0 && (
-                  <div className={styles.empty}>
-                    <QrCode size={30} color="var(--border2)" />
-                    <p>No QR codes yet</p>
-                  </div>
-                )}
+              <div>
+                <div className={styles.toolbar}>
+                  <span style={{ fontSize:14, color:'var(--text2)' }}>
+                    Last {qrCodes.length} QR codes
+                  </span>
+                  <button className="btn-ghost" onClick={loadQR}
+                    style={{ padding:'9px 14px', fontSize:'13px' }}>
+                    <RefreshCw size={13} /> Refresh
+                  </button>
+                </div>
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead><tr>
+                      <th>Type</th><th>Data</th><th>User</th>
+                      <th>Date</th><th>Quality</th><th>Paid</th>
+                    </tr></thead>
+                    <tbody>
+                      {qrCodes.map(q => (
+                        <tr key={q.id}>
+                          <td><span className="badge badge-pro">{q.type}</span></td>
+                          <td><span className={styles.uEmail}>{q.data?.slice(0,30)}...</span></td>
+                          <td><span className={styles.uEmail}>{q.uid?.slice(0,10)}...</span></td>
+                          <td><span className={styles.uEmail}>{formatDate(q.createdAt)}</span></td>
+                          <td><span className={styles.qrN}>{q.style?.quality || 'std'}</span></td>
+                          <td>
+                            {q.paid
+                              ? <Check size={15} color="var(--success)" />
+                              : <X     size={15} color="var(--text3)"  />}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {qrCodes.length === 0 && (
+                    <div className={styles.empty}>
+                      <QrCode size={30} color="var(--border2)" /><p>No QR codes yet</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* ── STATS ── */}
+            {/* STATS */}
             {tab === 'stats' && (
               <div className={styles.statsGrid}>
                 {[
-                  { label: 'Total Users',        value: stats.users, color: '#0090c1' },
-                  { label: 'QR Codes Generated', value: stats.qr,    color: '#38aecc' },
-                  { label: 'VIP / Free Access',  value: stats.vip,   color: '#046e8f' },
-                  { label: 'Paid Generations',   value: stats.paid,  color: '#183446' },
-                ].map((s, i) => (
+                  { label:'Total Users',        value:stats.users, color:'#0090c1' },
+                  { label:'QR Codes Generated', value:stats.qr,    color:'#38aecc' },
+                  { label:'VIP / Free Access',  value:stats.vip,   color:'#046e8f' },
+                  { label:'Paid Generations',   value:stats.paid,  color:'#183446' },
+                ].map((s,i) => (
                   <motion.div key={i} className={styles.statCard}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.06 }}>
-                    <div className={styles.statCardNum} style={{ color: s.color }}>{s.value}</div>
+                    initial={{ opacity:0, scale:.9 }}
+                    animate={{ opacity:1, scale:1 }}
+                    transition={{ delay:i*.06 }}>
+                    <div className={styles.statCardNum} style={{ color:s.color }}>{s.value}</div>
                     <div className={styles.statCardLabel}>{s.label}</div>
                   </motion.div>
                 ))}

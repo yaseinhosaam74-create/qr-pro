@@ -1,129 +1,144 @@
 /* styles/Navbar.module.css */
 .nav {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 100;
-  height: 62px;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 60px;
   background: var(--nav-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
 }
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  height: 100%;
+.inner {
+  max-width: 1200px; margin: 0 auto; height: 100%;
   padding: 0 20px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
+  display: flex; align-items: center; gap: 20px;
 }
 
 .logo {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
-
 .logoIcon {
-  width: 34px; height: 34px;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  border-radius: 10px;
+  width: 32px; height: 32px; border-radius: 9px;
+  background: linear-gradient(135deg, #0090c1, #38aecc);
   display: flex; align-items: center; justify-content: center;
-  color: white;
-  box-shadow: 0 4px 12px rgba(124,58,237,0.35);
+  color: white; box-shadow: 0 3px 10px rgba(0,144,193,0.4);
 }
-
-.logoText {
-  font-family: 'Syne', sans-serif;
-  font-size: 19px;
-  font-weight: 800;
-  color: var(--text);
+.logoTxt {
+  font-family: 'Syne', sans-serif; font-size: 18px;
+  font-weight: 800; color: var(--text);
 }
 
 .links {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
+  display: flex; align-items: center; gap: 3px; flex: 1;
 }
-
-.link, .linkActive {
-  padding: 6px 13px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
+.link, .linkOn {
+  padding: 6px 12px; border-radius: 8px;
+  font-size: 14px; font-weight: 500;
+  transition: all 0.18s;
+  -webkit-tap-highlight-color: transparent;
 }
-.link { color: var(--text2); }
+.link   { color: var(--text2); }
 .link:hover { color: var(--text); background: var(--surface); }
-.linkActive { color: var(--accent); background: rgba(124,58,237,0.1); }
+.linkOn { color: var(--accent); background: rgba(0,144,193,0.1); }
 
 .actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
+  display: flex; align-items: center; gap: 8px; margin-left: auto;
 }
-
-.themeBtn {
-  width: 36px; height: 36px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--text2);
-  transition: all 0.2s;
-}
-.themeBtn:hover { color: var(--gold); border-color: var(--gold); background: rgba(245,158,11,0.08); }
 
 .iconBtn {
-  width: 36px; height: 36px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--surface); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
-  color: var(--text2);
-  transition: all 0.2s;
+  color: var(--text2); transition: all 0.18s;
+  -webkit-tap-highlight-color: transparent;
 }
-.iconBtn:hover { color: var(--accent); border-color: var(--accent); background: rgba(124,58,237,0.08); }
-
-.avatar {
-  width: 34px; height: 34px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 13px;
-  color: white;
-}
-
-.logoutBtn {
-  width: 36px; height: 36px;
-  border-radius: 10px;
-  background: transparent;
-  border: none;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--text3);
-  transition: all 0.2s;
-}
-.logoutBtn:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+.iconBtn:hover { color: var(--accent); border-color: var(--accent); }
 
 .signInBtn {
-  padding: 8px 16px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text2);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  transition: all 0.2s;
+  padding: 7px 14px; border-radius: 9px;
+  font-size: 14px; font-weight: 500;
+  color: var(--text2); border: 1px solid var(--border);
+  background: var(--surface); transition: all 0.18s;
   display: inline-flex; align-items: center;
+  -webkit-tap-highlight-color: transparent;
 }
 .signInBtn:hover { color: var(--text); border-color: var(--border2); }
 
-@media (max-width: 600px) {
+/* ── Avatar Button ── */
+.menuWrap { position: relative; }
+
+.avatarBtn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 4px 8px 4px 4px;
+  transition: all 0.18s; cursor: pointer; position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.avatarBtn:hover, .avatarOpen {
+  border-color: var(--accent);
+  background: rgba(0,144,193,0.06);
+}
+
+.avatar {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: linear-gradient(135deg, #0090c1, #38aecc);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 12px; color: white;
+}
+
+.crownBadge {
+  position: absolute; top: -4px; right: -4px;
+  color: #f59e0b; background: var(--bg2);
+  border-radius: 50%; padding: 1px;
+}
+
+.chevron {
+  color: var(--text3); transition: transform 0.2s;
+}
+.chevronUp { transform: rotate(180deg); }
+
+/* ── Dropdown ── */
+.dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: 260px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.25);
+  overflow: hidden;
+  z-index: 200;
+}
+
+.dropHeader {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 14px 12px;
+}
+.dropAvatar {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, #0090c1, #38aecc);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; color: white;
+}
+.dropName  { font-size: 14px; font-weight: 700; color: var(--text); }
+.dropEmail { font-size: 11px; color: var(--text3); margin-top: 1px; word-break: break-all; }
+
+.dropDivider { height: 1px; background: var(--border); margin: 4px 0; }
+
+.dropItem {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  font-size: 14px; font-weight: 500; color: var(--text2);
+  transition: all 0.15s; width: 100%; text-align: left;
+  background: none; border: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dropItem:hover { background: var(--surface); color: var(--text); }
+
+.dropLogout { color: var(--danger) !important; }
+.dropLogout:hover { background: rgba(239,68,68,0.08) !important; }
+
+@media (max-width: 580px) {
   .links { display: none; }
-  .container { padding: 0 14px; }
+  .inner { padding: 0 14px; }
 }

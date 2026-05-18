@@ -1,107 +1,89 @@
 /* styles/Dashboard.module.css */
-.page { min-height: 100vh; position: relative; z-index: 1; }
+.page { min-height:100vh; position:relative; z-index:1; }
 
-.container {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 100px 24px 60px;
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
+.wrap {
+  max-width:1100px; margin:0 auto;
+  padding:84px 20px 60px;
+  display:flex; flex-direction:column; gap:20px;
 }
 
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
+  display:flex; align-items:center;
+  justify-content:space-between; flex-wrap:wrap; gap:14px;
 }
-
-.title { font-size: 32px; font-weight: 800; }
-
+.title { font-size:28px; font-weight:800; }
 .sub {
-  display: flex;
-  align-items: center;
-  color: var(--text2);
-  font-size: 15px;
-  margin-top: 4px;
+  display:flex; align-items:center;
+  color:var(--text2); font-size:14px; margin-top:4px;
 }
+.headerActions { display:flex; gap:10px; flex-wrap:wrap; }
 
-.loading {
-  text-align: center;
-  color: var(--text3);
-  padding: 60px;
+/* Stats */
+.statsRow {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
 }
+@media (max-width:480px) { .statsRow { grid-template-columns:1fr; } }
 
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 80px 40px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  text-align: center;
+.statCard {
+  background:var(--bg2); border:1px solid var(--border);
+  border-top:3px solid; border-radius:14px;
+  padding:16px; text-align:center;
 }
+.statNum   { font-family:'Syne',sans-serif; font-size:32px; font-weight:800; line-height:1; }
+.statLabel { font-size:12px; color:var(--text3); margin-top:4px; }
 
-.empty h3 { font-size: 22px; }
-.empty p { color: var(--text2); font-size: 15px; }
+/* Loading / Empty */
+.loadingBox, .emptyBox {
+  display:flex; flex-direction:column; align-items:center;
+  gap:14px; padding:60px 20px; text-align:center;
+  background:var(--bg2); border:1px solid var(--border); border-radius:20px;
+}
+.emptyBox h3 { font-size:20px; }
+.emptyBox p  { font-size:14px; color:var(--text2); }
 
+.spinner {
+  width:28px; height:28px;
+  border:3px solid var(--border2);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Grid */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
+  gap:14px;
 }
 
 .card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  transition: border-color 0.2s, transform 0.2s;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:16px; padding:16px;
+  display:flex; flex-direction:column; gap:10px;
+  transition:border-color .18s, transform .18s;
 }
-
-.card:hover {
-  border-color: var(--border2);
-  transform: translateY(-2px);
-}
+.card:hover { border-color:var(--border2); transform:translateY(-2px); }
 
 .cardTop {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display:flex; align-items:center;
+  justify-content:space-between; gap:8px;
 }
-
-.typeIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(124, 58, 237, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent3);
+.typeChip {
+  display:flex; align-items:center; gap:5px;
+  font-size:10px; font-weight:800; letter-spacing:.05em;
+  padding:3px 9px; border-radius:7px;
 }
+.cardBadges { display:flex; gap:5px; }
 
 .cardData {
-  font-size: 13px;
-  color: var(--text2);
-  word-break: break-all;
-  line-height: 1.5;
-  flex: 1;
+  font-size:13px; color:var(--text2);
+  word-break:break-all; line-height:1.45; flex:1;
 }
 
-.cardMeta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text3);
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
+.cardFooter {
+  display:flex; align-items:center; justify-content:space-between;
+  padding-top:8px; border-top:1px solid var(--border);
 }
+.colorDots { display:flex; gap:4px; }
+.cardDate  { font-size:11px; color:var(--text3); }
