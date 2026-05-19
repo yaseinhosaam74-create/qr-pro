@@ -3,86 +3,99 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   collection, getDocs, doc, updateDoc,
-  getDoc, setDoc, query, orderBy
+  getDoc, setDoc, onSnapshot
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import Navbar from '../components/Navbar';
 import toast from 'react-hot-toast';
 import {
   Users, Shield, DollarSign, Edit3, Check, X,
   Search, RefreshCw, QrCode, TrendingUp,
   ToggleLeft, ToggleRight, Lock, Eye, EyeOff,
-  Phone, Bell, CheckCircle, XCircle, Clock
+  Phone, Bell, CheckCircle, XCircle, Clock,
+  LogOut, Settings, Home
 } from 'lucide-react';
+import Link from 'next/link';
 import styles from '../styles/Admin.module.css';
 
-const ADMIN_PASS_KEY = 'qrpro_admin_session';
+const SESSION_KEY = 'qrpro_admin_v2';
 
-export default function AdminPanel({ theme, toggleTheme, lang }) {
-  // ── Auth gate ──
+export default function AdminPanel() {
   const [unlocked,  setUnlocked]  = useState(false);
-  const [passInput, setPassInput] = useState('');
+  const [checking,  setChecking]  = useState(true); // check session first
+  const [email,     setEmail]     = useState('');
+  const [pass,      setPass]      = useState('');
   const [showPass,  setShowPass]  = useState(false);
-  const [checking,  setChecking]  = useState(false);
+  const [logging,   setLogging]   = useState(false);
 
-  // ── Data ──
   const [tab,       setTab]       = useState('orders');
   const [users,     setUsers]     = useState([]);
   const [qrCodes,   setQrCodes]   = useState([]);
   const [orders,    setOrders]    = useState([]);
   const [pricing,   setPricing]   = useState({ highQuality:5, gradient:2, bgImage:3, currency:'EGP' });
-  const [settings,  setSettings]  = useState({ paymentPhone:'+201121454510', adminEmail:'yaseinhosaam74@gmail.com', adminPassword:'' });
+  const [settings,  setSettings]  = useState({ paymentPhone:'+201121454510', adminEmail:'', adminPassword:'', adminEmailLogin:'' });
   const [editPrice, setEditPrice] = useState(null);
   const [search,    setSearch]    = useState('');
   const [fetching,  setFetching]  = useState(false);
-  const [stats,     setStats]     = useState({ users:0, qr:0, vip:0, orders:0 });
 
-  // Check session
+  // Check existing session
   useEffect(() => {
-    const session = sessionStorage.getItem(ADMIN_PASS_KEY);
-    if (session === 'true') setUnlocked(true);
+    const s = sessionStorage.getItem(SESSION_KEY);
+    if (s === 'ok') {
+      setUnlocked(true);
+      loadAll();
+    }
+    setChecking(false);
   }, []);
 
   const handleLogin = async () => {
-    if (!passInput) { toast.error('Enter password'); return; }
-    setChecking(true);
+    if (!email || !pass) { toast.error('أدخل الإيميل وكلمة المرور'); return; }
+    setLogging(true);
     try {
       const snap = await getDoc(doc(db, 'settings', 'admin'));
       if (snap.exists()) {
-        const storedPass = snap.data().adminPassword;
-        if (passInput === storedPass) {
-          sessionStorage.setItem(ADMIN_PASS_KEY, 'true');
+        const data = snap.data();
+        const correctEmail = data.adminEmailLogin || data.adminEmail || '';
+        const correctPass  = data.adminPassword   || 'admin1997';
+        if (email.trim() === correctEmail && pass === correctPass) {
+          sessionStorage.setItem(SESSION_KEY, 'ok');
           setUnlocked(true);
-          setSettings(snap.data());
-          toast.success('Welcome, Admin! 👋');
+          setSettings(data);
+          toast.success('أهلاً بك في لوحة التحكم 👋');
           loadAll();
         } else {
-          toast.error('Wrong password');
+          toast.error('الإيميل أو كلمة المرور خاطئة');
         }
       } else {
-        // First time — create settings doc
-        if (passInput === 'admin1997') {
+        // First time setup
+        if (pass === 'admin1997' && email === 'yaseinhosaam74@gmail.com') {
           const initSettings = {
-            adminPassword: 'admin1997',
-            paymentPhone: '+201121454510',
-            adminEmail: 'yaseinhosaam74@gmail.com',
+            adminPassword:  'admin1997',
+            adminEmailLogin: 'yaseinhosaam74@gmail.com',
+            adminEmail:     'yaseinhosaam74@gmail.com',
+            paymentPhone:   '+201121454510',
           };
           await setDoc(doc(db, 'settings', 'admin'), initSettings);
           setSettings(initSettings);
-          sessionStorage.setItem(ADMIN_PASS_KEY, 'true');
+          sessionStorage.setItem(SESSION_KEY, 'ok');
           setUnlocked(true);
-          toast.success('First login! Change your password in Settings.');
+          toast.success('تم إنشاء الإعدادات! غيّر البيانات من لوحة الإعدادات.');
           loadAll();
         } else {
-          toast.error('Wrong password');
+          toast.error('البيانات غير صحيحة. المبدئية: yaseinhosaam74@gmail.com / admin1997');
         }
       }
     } catch (e) {
       console.error(e);
-      toast.error('Connection error');
+      toast.error('خطأ في الاتصال بقاعدة البيانات');
     } finally {
-      setChecking(false);
+      setLogging(false);
     }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    setUnlocked(false);
+    setEmail(''); setPass('');
   };
 
   const loadAll = () => { loadPricing(); loadUsers(); loadQR(); loadOrders(); loadSettings(); };
@@ -97,11 +110,7 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
   const loadPricing = async () => {
     try {
       const snap = await getDoc(doc(db, 'pricing', 'config'));
-      if (snap.exists()) {
-        const d = snap.data();
-        if (d.currency === 'EG') d.currency = 'EGP';
-        setPricing(d);
-      }
+      if (snap.exists()) { const d=snap.data(); if(d.currency==='EG') d.currency='EGP'; setPricing(d); }
     } catch {}
   };
 
@@ -109,196 +118,231 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
     setFetching(true);
     try {
       const snap = await getDocs(collection(db, 'users'));
-      const list = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-      list.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      const list = snap.docs.map(d=>({id:d.id,...d.data()}));
+      list.sort((a,b)=>(b.createdAt?.toMillis?.()|| 0)-(a.createdAt?.toMillis?.()|| 0));
       setUsers(list);
-      setStats(s => ({ ...s, users:list.length, vip:list.filter(u=>u.freeAccess||u.role==='vip'||u.role==='admin').length }));
-    } catch (e) { console.error(e); toast.error('Failed to load users'); }
+    } catch(e){ console.error(e); toast.error('فشل تحميل المستخدمين'); }
     finally { setFetching(false); }
   };
 
   const loadQR = async () => {
     try {
       const snap = await getDocs(collection(db, 'qr_codes'));
-      const list = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-      list.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      const list = snap.docs.map(d=>({id:d.id,...d.data()}));
+      list.sort((a,b)=>(b.createdAt?.toMillis?.()|| 0)-(a.createdAt?.toMillis?.()|| 0));
       setQrCodes(list.slice(0,100));
-      setStats(s => ({ ...s, qr:list.length }));
     } catch {}
   };
 
   const loadOrders = async () => {
     try {
       const snap = await getDocs(collection(db, 'orders'));
-      const list = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-      list.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      const list = snap.docs.map(d=>({id:d.id,...d.data()}));
+      list.sort((a,b)=>(b.createdAt?.toMillis?.()|| 0)-(a.createdAt?.toMillis?.()|| 0));
       setOrders(list);
-      setStats(s => ({ ...s, orders:list.filter(o=>o.status==='pending').length }));
-    } catch {}
+    } catch(e){ console.error('orders error:', e); }
   };
 
-  const approveOrder = async (orderId, userId, customAmount) => {
+  const approveOrder = async (orderId, customAmount) => {
     try {
-      const amount = customAmount !== undefined ? customAmount : orders.find(o=>o.id===orderId)?.amount;
-      await updateDoc(doc(db, 'orders', orderId), {
+      await updateDoc(doc(db,'orders',orderId), {
         status: 'approved',
-        amount,
+        amount: parseFloat(customAmount) || 0,
         paymentPhone: settings.paymentPhone,
         reviewedAt: new Date(),
       });
-      setOrders(p => p.map(o => o.id===orderId ? { ...o, status:'approved', amount, paymentPhone:settings.paymentPhone } : o));
-      toast.success('✅ Order approved — user notified');
-    } catch { toast.error('Failed'); }
+      setOrders(p=>p.map(o=>o.id===orderId?{...o,status:'approved',amount:parseFloat(customAmount)||0,paymentPhone:settings.paymentPhone}:o));
+      toast.success('✅ تمت الموافقة وإعلام المستخدم');
+    } catch(e){ console.error(e); toast.error('فشل: '+e.message); }
   };
 
   const rejectOrder = async (orderId) => {
     try {
-      await updateDoc(doc(db, 'orders', orderId), { status:'rejected', reviewedAt:new Date() });
-      setOrders(p => p.map(o => o.id===orderId ? { ...o, status:'rejected' } : o));
-      toast.success('Order rejected');
-    } catch { toast.error('Failed'); }
+      await updateDoc(doc(db,'orders',orderId), { status:'rejected', reviewedAt:new Date() });
+      setOrders(p=>p.map(o=>o.id===orderId?{...o,status:'rejected'}:o));
+      toast.success('تم الرفض');
+    } catch { toast.error('فشل'); }
   };
 
   const toggleFree = async (uid, cur) => {
     try {
       await updateDoc(doc(db,'users',uid), { freeAccess:!cur });
-      setUsers(p => p.map(u => u.id===uid ? { ...u, freeAccess:!cur } : u));
-      toast.success(!cur ? '✅ Free access granted' : '🔒 Revoked');
-    } catch { toast.error('Failed'); }
+      setUsers(p=>p.map(u=>u.id===uid?{...u,freeAccess:!cur}:u));
+      toast.success(!cur ? '✅ وصول مجاني مُفعَّل' : '🔒 تم الإلغاء');
+    } catch { toast.error('فشل'); }
   };
 
   const changeRole = async (uid, role) => {
     try {
       await updateDoc(doc(db,'users',uid), { role });
-      setUsers(p => p.map(u => u.id===uid ? { ...u, role } : u));
-      toast.success(`Role → ${role}`);
-    } catch { toast.error('Failed'); }
+      setUsers(p=>p.map(u=>u.id===uid?{...u,role}:u));
+      toast.success(`الدور → ${role}`);
+    } catch { toast.error('فشل'); }
   };
 
   const savePricing = async () => {
     try {
       await setDoc(doc(db,'pricing','config'), pricing);
-      toast.success('Pricing saved ✓');
+      toast.success('تم حفظ الأسعار ✓');
       setEditPrice(null);
-    } catch { toast.error('Failed'); }
+    } catch { toast.error('فشل'); }
   };
 
   const saveSettings = async () => {
     try {
       await setDoc(doc(db,'settings','admin'), settings);
-      toast.success('Settings saved ✓');
-    } catch { toast.error('Failed'); }
+      toast.success('تم حفظ الإعدادات ✓');
+      // Update session
+      sessionStorage.setItem(SESSION_KEY, 'ok');
+    } catch { toast.error('فشل'); }
   };
 
-  const formatDate = ts => {
+  const fmt = ts => {
     if (!ts) return '—';
     const d = ts.toDate ? ts.toDate() : new Date(ts);
-    return d.toLocaleDateString('ar-EG', { month:'short', day:'numeric', year:'numeric' });
+    return d.toLocaleDateString('ar-EG', { day:'numeric', month:'short', year:'numeric' });
   };
 
-  const filtered = users.filter(u =>
+  const filtered  = users.filter(u =>
     u.email?.toLowerCase().includes(search.toLowerCase()) ||
     u.name?.toLowerCase().includes(search.toLowerCase())
   );
+  const pending   = orders.filter(o=>o.status==='pending');
+  const approved  = orders.filter(o=>o.status==='approved');
 
-  const pendingOrders  = orders.filter(o => o.status === 'pending');
-  const approvedOrders = orders.filter(o => o.status === 'approved');
+  const FEATURE = { highQuality:'جودة عالية (1024px)', gradient:'تدرج الألوان', bgImage:'صورة خلفية' };
 
-  // ══════════════════════════════════════
-  // LOGIN GATE
-  // ══════════════════════════════════════
-  if (!unlocked) return (
-    <div className={styles.page}>
-      <Navbar theme={theme} toggleTheme={toggleTheme} lang={lang} />
-      <div className={styles.gateWrap}>
-        <motion.div className={styles.gateCard}
-          initial={{ opacity:0, y:24, scale:.96 }}
-          animate={{ opacity:1, y:0, scale:1 }}
-          transition={{ duration:.4 }}>
-
-          <div className={styles.gateIcon}><Lock size={28} color="var(--accent2)" /></div>
-          <h2 className={styles.gateTitle}>Admin Access</h2>
-          <p className={styles.gateSub}>لوحة التحكم — أدخل كلمة المرور للمتابعة</p>
-
-          <div className={styles.gateField}>
-            <input
-              className="input-field"
-              type={showPass ? 'text' : 'password'}
-              placeholder="Admin Password"
-              value={passInput}
-              onChange={e => setPassInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              autoFocus
-              style={{ paddingRight: 42 }}
-            />
-            <button className={styles.gateEye} onClick={() => setShowPass(p=>!p)}>
-              {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </div>
-
-          <motion.button className={`btn-primary ${styles.gateBtn}`}
-            onClick={handleLogin} disabled={checking}
-            whileTap={{ scale:.97 }}>
-            {checking ? <RefreshCw size={15} className={styles.spin} /> : <Shield size={15} />}
-            {checking ? 'Checking...' : 'Enter Admin Panel'}
-          </motion.button>
-
-          <p className={styles.gateHint}>
-            First time? Use password: <code>admin1997</code>
-          </p>
-        </motion.div>
-      </div>
+  // ── Checking session ──
+  if (checking) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <RefreshCw size={24} className={styles.spin} color="#0090c1"/>
     </div>
   );
 
   // ══════════════════════════════════════
-  // ADMIN PANEL
+  // LOGIN PAGE
+  // ══════════════════════════════════════
+  if (!unlocked) return (
+    <div className={styles.gatePage}>
+      <motion.div className={styles.gateCard}
+        initial={{ opacity:0, y:24, scale:.97 }}
+        animate={{ opacity:1, y:0, scale:1 }}
+        transition={{ duration:.4 }}>
+
+        <div className={styles.gateLogo}>
+          <div className={styles.gateLogoIcon}><Shield size={22}/></div>
+          <span>QR<span className={styles.pro}>Pro</span></span>
+        </div>
+
+        <h2 className={styles.gateTitle}>لوحة التحكم</h2>
+        <p className={styles.gateSub}>للأدمن فقط — أدخل بياناتك للمتابعة</p>
+
+        <div className={styles.gateFields}>
+          <div className={styles.gateField}>
+            <input
+              className="input-field"
+              type="email"
+              placeholder="البريد الإلكتروني"
+              value={email}
+              onChange={e=>setEmail(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&handleLogin()}
+              style={{ textAlign:'right', direction:'rtl' }}
+              autoComplete="email"
+            />
+          </div>
+          <div className={styles.gateField}>
+            <input
+              className="input-field"
+              type={showPass ? 'text' : 'password'}
+              placeholder="كلمة المرور"
+              value={pass}
+              onChange={e=>setPass(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&handleLogin()}
+              style={{ direction:'ltr', textAlign:'left', paddingRight:42 }}
+              autoComplete="current-password"
+            />
+            <button className={styles.gateEye} onClick={()=>setShowPass(p=>!p)} type="button">
+              {showPass ? <EyeOff size={14}/> : <Eye size={14}/>}
+            </button>
+          </div>
+        </div>
+
+        <motion.button className={`btn-primary ${styles.gateBtn}`}
+          onClick={handleLogin} disabled={logging}
+          whileTap={{ scale:.97 }}>
+          {logging ? <RefreshCw size={15} className={styles.spin}/> : <Shield size={15}/>}
+          {logging ? 'جارٍ التحقق...' : 'دخول لوحة التحكم'}
+        </motion.button>
+
+        <Link href="/" className={styles.gateBack}>
+          <Home size={13}/> العودة للموقع
+        </Link>
+
+        <p className={styles.gateHint}>
+          الدخول الأول: <code>yaseinhosaam74@gmail.com</code> / <code>admin1997</code>
+        </p>
+      </motion.div>
+    </div>
+  );
+
+  // ══════════════════════════════════════
+  // ADMIN DASHBOARD
   // ══════════════════════════════════════
   const TABS = [
-    { id:'orders',  label:`الطلبات ${pendingOrders.length > 0 ? `(${pendingOrders.length})` : ''}`, icon:Bell },
+    { id:'orders',  label:`الطلبات ${pending.length>0?`(${pending.length})`:''}`, icon:Bell },
     { id:'users',   label:'المستخدمون', icon:Users },
     { id:'pricing', label:'الأسعار',    icon:DollarSign },
     { id:'qr',      label:'سجل QR',     icon:QrCode },
     { id:'stats',   label:'إحصائيات',   icon:TrendingUp },
-    { id:'settings',label:'الإعدادات',  icon:Shield },
+    { id:'settings',label:'الإعدادات',  icon:Settings },
   ];
 
   return (
-    <div className={styles.page}>
-      <Navbar theme={theme} toggleTheme={toggleTheme} lang={lang} />
-      <div className={styles.wrap}>
+    <div className={styles.dashPage}>
+      {/* Admin Navbar */}
+      <div className={styles.adminNav}>
+        <div className={styles.adminNavInner}>
+          <div className={styles.adminNavLogo}>
+            <Shield size={16} color="white"/>
+            <span>لوحة التحكم — QR Pro</span>
+          </div>
+          <div className={styles.adminNavActions}>
+            <span className={styles.adminEmail}>{settings.adminEmailLogin || settings.adminEmail}</span>
+            <Link href="/" className={styles.adminNavBtn} title="الموقع الرئيسي">
+              <Home size={15}/> الموقع
+            </Link>
+            <button className={styles.adminLogout} onClick={handleLogout}>
+              <LogOut size={14}/> خروج
+            </button>
+          </div>
+        </div>
+      </div>
 
-        {/* Header */}
-        <div className={styles.header}>
-          <div>
-            <div className={styles.adminTag}><Shield size={11} /> Admin Panel</div>
-            <h1 className={styles.title}>لوحة التحكم</h1>
-            <p className={styles.sub}>{settings.adminEmail}</p>
-          </div>
-          <div className={styles.statsRow}>
-            {[
-              { n:stats.users,  l:'مستخدمون' },
-              { n:stats.qr,     l:'كودات QR' },
-              { n:stats.vip,    l:'VIP' },
-              { n:pendingOrders.length, l:'طلبات جديدة', highlight: pendingOrders.length > 0 },
-            ].map((s,i) => (
-              <div key={i} className={`${styles.statBox} ${s.highlight ? styles.statHighlight : ''}`}>
-                <span className={styles.statN}>{s.n}</span>
-                <span className={styles.statL}>{s.l}</span>
-              </div>
-            ))}
-          </div>
+      <div className={styles.wrap}>
+        {/* Stats Strip */}
+        <div className={styles.statsStrip}>
+          {[
+            { n:users.length,   l:'مستخدمون',    color:'#0090c1' },
+            { n:qrCodes.length, l:'كودات QR',     color:'#38aecc' },
+            { n:pending.length, l:'طلبات جديدة', color:'#f59e0b', alert:pending.length>0 },
+            { n:orders.length,  l:'إجمالي الطلبات', color:'#046e8f' },
+          ].map((s,i)=>(
+            <div key={i} className={`${styles.stripItem} ${s.alert?styles.stripAlert:''}`}>
+              <span className={styles.stripN} style={{color:s.color}}>{s.n}</span>
+              <span className={styles.stripL}>{s.l}</span>
+            </div>
+          ))}
         </div>
 
         {/* Tabs */}
         <div className={styles.tabs}>
-          {TABS.map(t => {
-            const Icon = t.icon;
+          {TABS.map(t=>{
+            const Icon=t.icon;
             return (
               <button key={t.id}
-                className={`${tab===t.id ? styles.tabOn : styles.tab} ${t.id==='orders' && pendingOrders.length>0 ? styles.tabAlert : ''}`}
-                onClick={() => setTab(t.id)}>
-                <Icon size={14} /> {t.label}
+                className={`${tab===t.id?styles.tabOn:styles.tab} ${t.id==='orders'&&pending.length>0?styles.tabAlert:''}`}
+                onClick={()=>setTab(t.id)}>
+                <Icon size={14}/> {t.label}
               </button>
             );
           })}
@@ -306,56 +350,62 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
 
         <AnimatePresence mode="wait">
           <motion.div key={tab}
-            initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }}
-            exit={{ opacity:0, y:-8 }} transition={{ duration:.18 }}>
+            initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
+            exit={{opacity:0,y:-8}} transition={{duration:.18}}>
 
-            {/* ── ORDERS ── */}
-            {tab === 'orders' && (
-              <div className={styles.ordersWrap}>
-                {orders.length === 0 ? (
+            {/* ORDERS */}
+            {tab==='orders'&&(
+              <div>
+                <div className={styles.toolbar}>
+                  <h2 className={styles.sectionTitle}>
+                    <Bell size={18}/> الطلبات المعلقة ({pending.length})
+                  </h2>
+                  <button className="btn-ghost" onClick={loadOrders} style={{padding:'8px 14px',fontSize:'13px'}}>
+                    <RefreshCw size={13}/> تحديث
+                  </button>
+                </div>
+
+                {/* Pending Orders */}
+                {pending.length===0&&approved.length===0&&orders.length===0 ? (
                   <div className={styles.empty}>
-                    <Bell size={32} color="var(--border2)" />
+                    <Bell size={32} color="var(--border2)"/>
                     <p>لا توجد طلبات بعد</p>
                   </div>
                 ) : (
-                  orders.map(order => (
-                    <OrderCard
-                      key={order.id}
-                      order={order}
-                      settings={settings}
-                      onApprove={approveOrder}
-                      onReject={rejectOrder}
-                      formatDate={formatDate}
-                      styles={styles}
-                    />
-                  ))
+                  <div className={styles.ordersWrap}>
+                    {orders.map(order=>(
+                      <OrderCard key={order.id} order={order} settings={settings}
+                        onApprove={approveOrder} onReject={rejectOrder}
+                        fmt={fmt} styles={styles} FEATURE={FEATURE}/>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
 
-            {/* ── USERS ── */}
-            {tab === 'users' && (
+            {/* USERS */}
+            {tab==='users'&&(
               <div>
                 <div className={styles.toolbar}>
                   <div className={styles.searchBox}>
-                    <Search size={14} />
+                    <Search size={14}/>
                     <input placeholder="ابحث بالاسم أو الإيميل..."
-                      value={search} onChange={e=>setSearch(e.target.value)} />
+                      value={search} onChange={e=>setSearch(e.target.value)}/>
                   </div>
-                  <button className="btn-ghost" onClick={loadUsers} style={{ padding:'9px 14px', fontSize:'13px' }}>
-                    <RefreshCw size={13} /> تحديث
+                  <button className="btn-ghost" onClick={loadUsers} style={{padding:'8px 14px',fontSize:'13px'}}>
+                    <RefreshCw size={13}/> تحديث
                   </button>
                 </div>
                 <div className={styles.tableWrap}>
-                  {fetching ? (
-                    <div className={styles.empty}><RefreshCw size={22} className={styles.spin} color="var(--accent)" /><p>تحميل...</p></div>
-                  ) : (
+                  {fetching?(
+                    <div className={styles.empty}><RefreshCw size={22} className={styles.spin} color="var(--accent)"/><p>تحميل...</p></div>
+                  ):(
                     <table className={styles.table}>
                       <thead><tr>
                         <th>المستخدم</th><th>الانضمام</th><th>الدور</th><th>وصول مجاني</th><th>الكودات</th>
                       </tr></thead>
                       <tbody>
-                        {filtered.map(u => (
+                        {filtered.map(u=>(
                           <tr key={u.id}>
                             <td>
                               <div className={styles.userCell}>
@@ -366,7 +416,7 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
                                 </div>
                               </div>
                             </td>
-                            <td><span className={styles.uEmail}>{formatDate(u.createdAt)}</span></td>
+                            <td><span className={styles.uEmail}>{fmt(u.createdAt)}</span></td>
                             <td>
                               <select className={styles.roleSelect} value={u.role||'user'}
                                 onChange={e=>changeRole(u.id,e.target.value)}>
@@ -378,8 +428,8 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
                             <td>
                               <button className={styles.toggleBtn} onClick={()=>toggleFree(u.id,u.freeAccess)}>
                                 {u.freeAccess
-                                  ? <><ToggleRight size={22} color="var(--accent)" /><span className={styles.on}>مفعّل</span></>
-                                  : <><ToggleLeft  size={22} color="var(--text3)"  /><span className={styles.off}>معطّل</span></>}
+                                  ?<><ToggleRight size={22} color="var(--accent)"/><span className={styles.on}>مفعّل</span></>
+                                  :<><ToggleLeft  size={22} color="var(--text3)" /><span className={styles.off}>معطّل</span></>}
                               </button>
                             </td>
                             <td><span className={styles.qrN}>{u.qrCount||0}</span></td>
@@ -388,21 +438,21 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
                       </tbody>
                     </table>
                   )}
-                  {!fetching && filtered.length===0 && (
-                    <div className={styles.empty}><Users size={28} color="var(--border2)" /><p>لا يوجد مستخدمون</p></div>
+                  {!fetching&&filtered.length===0&&(
+                    <div className={styles.empty}><Users size={28} color="var(--border2)"/><p>لا يوجد مستخدمون</p></div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* ── PRICING ── */}
-            {tab === 'pricing' && (
+            {/* PRICING */}
+            {tab==='pricing'&&(
               <div className={styles.priceGrid}>
                 {[
-                  { key:'highQuality', label:'جودة عالية (1024px)' },
-                  { key:'gradient',    label:'تدرج المحيط' },
-                  { key:'bgImage',     label:'صورة خلفية' },
-                ].map(item => (
+                  {key:'highQuality',label:'جودة عالية (1024px)'},
+                  {key:'gradient',   label:'تدرج الألوان'},
+                  {key:'bgImage',    label:'صورة خلفية'},
+                ].map(item=>(
                   <div key={item.key} className={styles.priceCard}>
                     <div className={styles.priceTop}>
                       <div>
@@ -411,26 +461,22 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
                       </div>
                       <button className={styles.editBtn}
                         onClick={()=>setEditPrice(editPrice===item.key?null:item.key)}>
-                        <Edit3 size={13} />
+                        <Edit3 size={13}/>
                       </button>
                     </div>
-                    {editPrice===item.key ? (
+                    {editPrice===item.key?(
                       <div className={styles.priceEditBox}>
                         <div className={styles.priceInputRow}>
                           <span>{pricing.currency}</span>
                           <input type="number" min="0" step="0.5" value={pricing[item.key]}
-                            onChange={e=>setPricing(p=>({...p,[item.key]:parseFloat(e.target.value)||0}))} />
+                            onChange={e=>setPricing(p=>({...p,[item.key]:parseFloat(e.target.value)||0}))}/>
                         </div>
                         <div className={styles.priceEditBtns}>
-                          <button className="btn-primary" onClick={savePricing} style={{padding:'8px 14px',fontSize:'13px'}}>
-                            <Check size={12} /> حفظ
-                          </button>
-                          <button className="btn-ghost" onClick={()=>setEditPrice(null)} style={{padding:'8px 14px',fontSize:'13px'}}>
-                            <X size={12} /> إلغاء
-                          </button>
+                          <button className="btn-primary" onClick={savePricing} style={{padding:'8px 14px',fontSize:'13px'}}><Check size={12}/> حفظ</button>
+                          <button className="btn-ghost"   onClick={()=>setEditPrice(null)} style={{padding:'8px 14px',fontSize:'13px'}}><X size={12}/> إلغاء</button>
                         </div>
                       </div>
-                    ) : (
+                    ):(
                       <div className={styles.priceDisplay}>
                         <span className={styles.priceBig}>{pricing[item.key]}</span>
                         <span className={styles.priceCur}>{pricing.currency}</span>
@@ -445,32 +491,31 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
                     {['EGP','USD','EUR','GBP','SAR','AED'].map(c=><option key={c} value={c}>{c}</option>)}
                   </select>
                   <button className="btn-primary" onClick={savePricing} style={{marginTop:10,width:'100%',padding:'10px',fontSize:'13px'}}>
-                    <Check size={13} /> حفظ
+                    <Check size={13}/> حفظ
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ── QR HISTORY ── */}
-            {tab === 'qr' && (
+            {/* QR */}
+            {tab==='qr'&&(
               <div>
                 <div className={styles.toolbar}>
                   <span style={{fontSize:14,color:'var(--text2)'}}>آخر {qrCodes.length} كود</span>
-                  <button className="btn-ghost" onClick={loadQR} style={{padding:'9px 14px',fontSize:'13px'}}>
-                    <RefreshCw size={13} /> تحديث
+                  <button className="btn-ghost" onClick={loadQR} style={{padding:'8px 14px',fontSize:'13px'}}>
+                    <RefreshCw size={13}/> تحديث
                   </button>
                 </div>
                 <div className={styles.tableWrap}>
                   <table className={styles.table}>
-                    <thead><tr><th>النوع</th><th>البيانات</th><th>المستخدم</th><th>التاريخ</th><th>الجودة</th><th>مدفوع</th></tr></thead>
+                    <thead><tr><th>النوع</th><th>البيانات</th><th>المستخدم</th><th>التاريخ</th><th>مدفوع</th></tr></thead>
                     <tbody>
                       {qrCodes.map(q=>(
                         <tr key={q.id}>
                           <td><span className="badge badge-pro">{q.type}</span></td>
-                          <td><span className={styles.uEmail}>{q.data?.slice(0,30)}...</span></td>
+                          <td><span className={styles.uEmail}>{q.data?.slice(0,35)}...</span></td>
                           <td><span className={styles.uEmail}>{q.uid?.slice(0,10)}...</span></td>
-                          <td><span className={styles.uEmail}>{formatDate(q.createdAt)}</span></td>
-                          <td><span className={styles.qrN}>{q.style?.quality||'عادي'}</span></td>
+                          <td><span className={styles.uEmail}>{fmt(q.createdAt)}</span></td>
                           <td>{q.paid?<Check size={15} color="var(--success)"/>:<X size={15} color="var(--text3)"/>}</td>
                         </tr>
                       ))}
@@ -481,16 +526,16 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
               </div>
             )}
 
-            {/* ── STATS ── */}
-            {tab === 'stats' && (
+            {/* STATS */}
+            {tab==='stats'&&(
               <div className={styles.statsGrid}>
                 {[
-                  { label:'إجمالي المستخدمين',  value:stats.users,            color:'#0090c1' },
-                  { label:'كودات QR مُولَّدة',  value:stats.qr,               color:'#38aecc' },
-                  { label:'مستخدمو VIP',         value:stats.vip,              color:'#046e8f' },
-                  { label:'طلبات معلقة',         value:pendingOrders.length,   color:'#f59e0b' },
-                  { label:'طلبات مقبولة',        value:approvedOrders.length,  color:'#10b981' },
-                  { label:'إجمالي الطلبات',      value:orders.length,          color:'#183446' },
+                  {label:'إجمالي المستخدمين', value:users.length,   color:'#0090c1'},
+                  {label:'كودات QR',           value:qrCodes.length, color:'#38aecc'},
+                  {label:'طلبات معلقة',        value:pending.length, color:'#f59e0b'},
+                  {label:'طلبات مقبولة',       value:approved.length,color:'#10b981'},
+                  {label:'إجمالي الطلبات',     value:orders.length,  color:'#046e8f'},
+                  {label:'VIP / مجاني',        value:users.filter(u=>u.freeAccess||u.role==='vip'||u.role==='admin').length, color:'#a855f7'},
                 ].map((s,i)=>(
                   <motion.div key={i} className={styles.statCard}
                     initial={{opacity:0,scale:.9}} animate={{opacity:1,scale:1}} transition={{delay:i*.05}}>
@@ -501,32 +546,32 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
               </div>
             )}
 
-            {/* ── SETTINGS ── */}
-            {tab === 'settings' && (
+            {/* SETTINGS */}
+            {tab==='settings'&&(
               <div className={styles.settingsWrap}>
                 <div className={styles.settingCard}>
-                  <h3><Phone size={16} /> رقم الدفع (اتصالات كاش)</h3>
+                  <h3><Phone size={16}/> رقم اتصالات كاش للدفع</h3>
                   <input className="input-field" value={settings.paymentPhone||''}
                     onChange={e=>setSettings(p=>({...p,paymentPhone:e.target.value}))}
-                    placeholder="+201121454510" />
+                    placeholder="+201121454510" style={{direction:'ltr',textAlign:'left'}}/>
                 </div>
                 <div className={styles.settingCard}>
-                  <h3><Shield size={16} /> كلمة مرور الأدمن</h3>
+                  <h3>📧 إيميل الدخول للوحة التحكم</h3>
+                  <input className="input-field" type="email"
+                    value={settings.adminEmailLogin||''}
+                    onChange={e=>setSettings(p=>({...p,adminEmailLogin:e.target.value}))}
+                    placeholder="admin@example.com" style={{direction:'ltr',textAlign:'left'}}/>
+                </div>
+                <div className={styles.settingCard}>
+                  <h3><Lock size={16}/> كلمة مرور لوحة التحكم</h3>
                   <input className="input-field" type="password"
                     value={settings.adminPassword||''}
                     onChange={e=>setSettings(p=>({...p,adminPassword:e.target.value}))}
-                    placeholder="كلمة المرور الجديدة" />
-                  <p className={styles.settingHint}>⚠️ تغيير كلمة المرور سيتطلب منك الدخول مرة أخرى</p>
+                    placeholder="كلمة المرور الجديدة"/>
+                  <p className={styles.settingHint}>⚠️ بعد التغيير ستحتاج لتسجيل الدخول مجدداً</p>
                 </div>
-                <div className={styles.settingCard}>
-                  <h3>📧 إيميل الإشعارات</h3>
-                  <input className="input-field" type="email"
-                    value={settings.adminEmail||''}
-                    onChange={e=>setSettings(p=>({...p,adminEmail:e.target.value}))}
-                    placeholder="admin@example.com" />
-                </div>
-                <button className="btn-primary" onClick={saveSettings} style={{padding:'12px 24px',fontSize:'15px'}}>
-                  <Check size={15} /> حفظ الإعدادات
+                <button className="btn-primary" onClick={saveSettings} style={{padding:'12px 24px',fontSize:'15px',alignSelf:'flex-start'}}>
+                  <Check size={15}/> حفظ الإعدادات
                 </button>
               </div>
             )}
@@ -538,98 +583,80 @@ export default function AdminPanel({ theme, toggleTheme, lang }) {
   );
 }
 
-// ── Order Card Component ──
-function OrderCard({ order, settings, onApprove, onReject, formatDate, styles }) {
-  const [customAmount, setCustomAmount] = useState(order.amount || '');
+// ── Order Card ──
+function OrderCard({ order, settings, onApprove, onReject, fmt, styles, FEATURE }) {
+  const [amount,    setAmount]    = useState(order.amount ?? '');
   const [approving, setApproving] = useState(false);
 
-  const statusConfig = {
-    pending:  { label:'قيد الانتظار', color:'#f59e0b', icon:Clock },
-    approved: { label:'تمت الموافقة', color:'#10b981', icon:CheckCircle },
-    rejected: { label:'مرفوض',        color:'#ef4444', icon:XCircle },
-    paid:     { label:'مدفوع',        color:'#0090c1', icon:Check },
+  const SC = {
+    pending:  { label:'معلق',            color:'#f59e0b', Icon:Clock },
+    approved: { label:'تمت الموافقة',    color:'#10b981', Icon:CheckCircle },
+    rejected: { label:'مرفوض',           color:'#ef4444', Icon:XCircle },
+    paid:     { label:'تأكيد الدفع',     color:'#0090c1', Icon:Check },
+    cancelled:{ label:'ملغى',            color:'#606080', Icon:X },
   };
-  const sc = statusConfig[order.status] || statusConfig.pending;
-  const StatusIcon = sc.icon;
-
-  const FEATURE_LABELS = {
-    highQuality: 'جودة عالية (1024px)',
-    gradient:    'تدرج المحيط',
-    bgImage:     'صورة خلفية',
-  };
+  const sc = SC[order.status] || SC.pending;
+  const StatusIcon = sc.Icon;
 
   return (
-    <div className={`${styles.orderCard} ${order.status === 'pending' ? styles.orderPending : ''}`}>
+    <div className={`${styles.orderCard} ${order.status==='pending'?styles.orderPending:''}`}>
       <div className={styles.orderTop}>
         <div className={styles.orderUser}>
-          <div className={styles.ava} style={{width:36,height:36,fontSize:14}}>
-            {(order.userName?.[0] || order.userEmail?.[0] || '?').toUpperCase()}
+          <div className={styles.ava} style={{width:36,height:36,fontSize:13,borderRadius:10}}>
+            {(order.userName?.[0]||order.userEmail?.[0]||'?').toUpperCase()}
           </div>
           <div>
-            <div className={styles.uName}>{order.userName || '—'}</div>
+            <div className={styles.uName}>{order.userName||'—'}</div>
             <div className={styles.uEmail}>{order.userEmail}</div>
           </div>
         </div>
-        <div className={styles.orderStatus} style={{color:sc.color,background:`${sc.color}15`,border:`1px solid ${sc.color}30`}}>
-          <StatusIcon size={12} /> {sc.label}
+        <div className={styles.orderStatus} style={{color:sc.color,background:`${sc.color}18`,border:`1px solid ${sc.color}35`}}>
+          <StatusIcon size={12}/> {sc.label}
         </div>
       </div>
 
-      <div className={styles.orderDetails}>
-        <div className={styles.orderDetail}>
-          <span>الميزة المطلوبة:</span>
-          <strong>{FEATURE_LABELS[order.feature] || order.feature}</strong>
-        </div>
-        <div className={styles.orderDetail}>
-          <span>المبلغ الافتراضي:</span>
-          <strong>{order.amount} {order.currency}</strong>
-        </div>
-        <div className={styles.orderDetail}>
-          <span>تاريخ الطلب:</span>
-          <strong>{formatDate(order.createdAt)}</strong>
-        </div>
-        <div className={styles.orderDetail}>
-          <span>بيانات QR:</span>
-          <strong className={styles.uEmail}>{order.qrData?.slice(0,40)}...</strong>
-        </div>
+      <div className={styles.orderMeta}>
+        <span>الميزة: <strong>{FEATURE[order.feature]||order.feature}</strong></span>
+        <span>السعر المبدئي: <strong>{order.amount} {order.currency}</strong></span>
+        <span>التاريخ: <strong>{fmt(order.createdAt)}</strong></span>
+        <span>QR: <strong className={styles.uEmail}>{order.qrData?.slice(0,30)}...</strong></span>
       </div>
 
-      {order.status === 'pending' && (
+      {order.status==='pending'&&(
         <div className={styles.orderActions}>
           <div className={styles.amountRow}>
-            <label>المبلغ المستحق ({order.currency}):</label>
-            <input type="number" min="0" step="0.5"
-              value={customAmount}
-              onChange={e=>setCustomAmount(parseFloat(e.target.value)||0)}
-              className={styles.amountInput}
-              placeholder={order.amount} />
-            <span className={styles.amountHint}>يمكنك تعديل المبلغ أو تركه 0 للمجان</span>
+            <label>المبلغ المستحق ({order.currency}) — ضع 0 للمجان:</label>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <input type="number" min="0" step="0.5"
+                value={amount} onChange={e=>setAmount(e.target.value)}
+                className={styles.amountInput} placeholder={order.amount}/>
+              <span className={styles.uEmail}>{order.currency}</span>
+            </div>
           </div>
           <div className={styles.orderBtns}>
             <button className={styles.approveBtn}
-              onClick={async()=>{ setApproving(true); await onApprove(order.id, order.uid, customAmount); setApproving(false); }}
+              onClick={async()=>{ setApproving(true); await onApprove(order.id, amount); setApproving(false); }}
               disabled={approving}>
-              {approving ? <RefreshCw size={14} className={styles.spin} /> : <CheckCircle size={14} />}
+              {approving?<RefreshCw size={13} className={styles.spin}/>:<CheckCircle size={13}/>}
               موافقة وإرسال للعميل
             </button>
             <button className={styles.rejectBtn} onClick={()=>onReject(order.id)}>
-              <XCircle size={14} /> رفض
+              <XCircle size={13}/> رفض
             </button>
           </div>
         </div>
       )}
 
-      {order.status === 'approved' && (
+      {order.status==='approved'&&(
         <div className={styles.orderApprovedInfo}>
-          <p>✅ تمت الموافقة — المبلغ المستحق: <strong>{order.amount} {order.currency}</strong></p>
-          <p>📱 رقم الدفع: <strong>{settings.paymentPhone}</strong></p>
-          <p style={{color:'var(--text3)',fontSize:12}}>في انتظار تأكيد الدفع من العميل</p>
+          <p>✅ الموافقة تمت — المبلغ: <strong>{order.amount===0?'مجاني 🎉':`${order.amount} ${order.currency}`}</strong></p>
+          <p>📱 رقم الدفع أُرسل للعميل: <strong>{settings.paymentPhone}</strong></p>
         </div>
       )}
 
-      {order.status === 'paid' && (
-        <div className={styles.orderApprovedInfo} style={{borderColor:'rgba(0,144,193,0.3)',background:'rgba(0,144,193,0.05)'}}>
-          <p>💰 تم إرسال المبلغ من العميل — تحقق من محفظتك</p>
+      {order.status==='paid'&&(
+        <div className={styles.orderApprovedInfo} style={{borderColor:'rgba(0,144,193,.3)',background:'rgba(0,144,193,.05)'}}>
+          <p>💰 <strong>المستخدم أرسل الدفع</strong> — تحقق من محفظة اتصالات كاش</p>
         </div>
       )}
     </div>
